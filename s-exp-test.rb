@@ -1,3 +1,4 @@
+require "./parser.rb"
 require "./parser_factory.rb"
 
 MEMO = {}

@@ -1,4 +1,3 @@
-require "./parser.rb"
 module BackTrackParser
   class ParserFactory
 

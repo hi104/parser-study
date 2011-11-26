@@ -1,3 +1,4 @@
+require "./parser.rb"
 require "./parser_factory.rb"
 
 MEMO = {}
@@ -29,7 +30,7 @@ include BackTrackParser
 
 calc_parser = ParserFactory.new.instance_eval do 
 
-  logic_m   = rule { term("[/+-/*//]").>>{|e| e.to_sym }}
+  logic_m   = rule { term("[-/+/*//]").>>{|e| e.to_sym }}
   space_m   = rule { wild { term("[ \n]+") }.>> {|e| nil}}
   number_m  = rule { term("-[0-9]+|[0-9]+").>> {|e| e.to_i} }
   sk        = rule { term("[(]").>> {|e| nil} }
@@ -89,7 +90,10 @@ p calc_parser.rules_set.keys
 ["(1*-2)",
  "1", 
  " (3) * 10 ", 
+ " 10 / 10 ", 
  "3 == 3", 
+ "(3--3) == 6", 
+ "(3-3) ==  0", 
  "(3 == 3)", 
  "(3 + 4) != (3 + 2)", 
  "(3 + 4) == (1 + 2 + 3 + 4)", 
@@ -117,3 +121,4 @@ if result = calc_parser.rules("Loop").call.parse(reader)
 end
 
 # p StringScanner.new("").eos?
+
