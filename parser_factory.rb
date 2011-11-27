@@ -44,7 +44,7 @@ module BackTrackParser
     end
 
     def rules(name)
-      @rules_set[name]
+      @rules_set[name].call
     end
 
     def rule(name = nil,  &block)

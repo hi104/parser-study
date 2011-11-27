@@ -1,6 +1,56 @@
 require "./parser.rb"
 require "./parser_factory.rb"
 
+class Enviroment
+
+  def initialize(parent=nil)
+    @parent = parent
+    @data = {}
+  end
+
+  def define(var, val)
+    @data[var] = val
+  end
+
+  def set(var, val)
+    if @data.has_key?(var)
+      @data[var] = val
+    else
+      if @parent
+        @parent.set(var, val)
+      else
+       #raise exception
+        false
+      end
+    end
+  end
+
+  def get(var)
+    ret = @data[var]
+    if ret
+      ret
+    else
+      if @parent 
+        @parent.get(var) 
+      else
+       #raise exception
+        nil 
+      end
+    end
+  end
+end
+
+class PDef
+  def initialize(var, val)
+    @var = var
+    @val = val
+  end
+
+  def apply(env)
+    env.define(@var, @val.apply(env))
+  end
+end
+
 class PSet
   def initialize(var, val)
     @var = var
@@ -8,7 +58,7 @@ class PSet
   end
 
   def apply(env)
-    
+    env.set(@var, @val.apply(env))
   end
 end
 
@@ -18,9 +68,22 @@ class PVal
   end
 
   def apply(env)
-    val
+    @val
   end
 end
+
+class PSequence
+  def initialize(val)
+    @val = val
+  end
+
+  def apply(env)
+    @val.each do 
+      @val.apply(env)
+    end
+  end
+end
+
 
 class PVar
   def initialize(var)
@@ -28,7 +91,7 @@ class PVar
   end
 
   def apply(env)
-    
+    env.get(@var)
   end
 end
 
@@ -78,21 +141,23 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
   symbol       = rule { term("[-/+/*//]|[@:a-zA-Z]+[0-9]*").>> {|e| e }} 
   eq_m         = rule { term("=")}
   camma        = rule { term("[,]").>> {|e| nil }}
-  string_m     = rule { term('"[^"]*"') }
+  string_m     = rule { term('"[^"]*"').>>{|e| PVal.new(e) }}
   space_m      = rule { term("[ ]+").>> {|e| nil}}
   space_wild_m = rule { term("[ ]*").>> {|e| nil}}
   newline_m    = rule { term("[\n]+") }
-  number_m     = rule { term("[0-9]+").>> {|e| e.to_i }}
+  number_m     = rule { term("[0-9]+").>> {|e| PVal.new(e.to_i) }}
   sk           = rule { term("[(]").>> {|e| nil} }
   ek           = rule { term("[)]").>> {|e| nil} }
 
-  # 予約語check
+  # 予約語check 
+  #TODO ifa とかもマッチしなくなる
   symbol_m = rule {
     seq(nott?(term("if")),
         nott?(term("else")), 
         nott?(term("end")),
         nott?(term("def")), 
         nott?(term("set")), 
+        nott?(term("fn")), 
         symbol).>> {|e|
       e[5]
     }
@@ -109,7 +174,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
            )
   }
 
-  skip_m = rule("skip"){
+  rule("skip"){
     choice(
            wild{ choice(space_m, newline_m )}, 
            space_wild_m
@@ -133,8 +198,8 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
                     space_wild_m, 
                     eq_m,
                     space_wild_m, 
-                    choice( rules("val") )
-                    ).>> {|e| e.find_all{ |e| not e.nil?}}
+                    rules("val")
+                    ).>> {|e| PSet.new(e[2], e[6])}
 
   }
 
@@ -145,7 +210,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
   rule("func_call_args") {
     get_arg_m.call(
                    proc{
-                     choice( rules("val"))
+                      rules("val")
                    })
   }
 
@@ -160,7 +225,9 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
         rules("skip")).>> {|e| e.find_all{ |e| not e.nil?}}
   }
 
-  rule("sequence"){
+
+
+  rule("sequence_cell"){
     choice(
            seq(
                rules("seq_one"),
@@ -169,7 +236,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
                       newline_m
                       ), 
                wild{ 
-                 rules("sequence")
+                 rules("sequence_cell")
                }
                ).>> {|e| e[2][0]? e[0] + e[2][0] : e[0]}, 
            seq(
@@ -179,12 +246,22 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
            )
   }
 
+  rule("sequence"){
+    seq(rules("sequence_cell")).>> {|e|
+      e[0].each_with_index do |e2, i|
+#         p [i, e2]
+      end
+      PSequence.new(e[0])
+    }
+  }
+
   rule("val"){
     choice(
            rules("func_call"), 
            seq(sk, rules("skip"), rules("comp_rule"), rules("skip"), ek).>> {|e| e[2] }, 
            seq(sk, rules("skip"), rules("val"), rules("skip"), ek).>> {|e| e[2] }, 
-           symbol_m, 
+           symbol_m.call.>> {|e|PVar.new(e)} , 
+           string_m,
            number_m
            )
   }
@@ -238,9 +315,23 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
         term("end")
         ).>> {|e| e.find_all{ |e| not e.nil?}}
   }
-  
+
+  rule("fn") {
+    seq( 
+        term("fn"),
+        rules("skip"),  
+        rules("func_args"), 
+        rules("skip"), 
+        rules("sequence"), 
+        rules("skip"),  
+        term("end")
+        ).>> {|e| e.find_all{ |e| not e.nil?}}
+  }
+
+#   rules("sequence").call
   self
 end
+
 
 parse_tests=[["func_args"      , "(sea, fdaf, fda)"], 
              ["func_call_args" , "(1, 2, 3, sea, fdaf, fda)"], 
@@ -263,16 +354,26 @@ parse_tests=[["func_args"      , "(sea, fdaf, fda)"],
              ["comp_rule"      , "10  >=  +(a, b)"], 
              ["if"             , "if (c(a, b, c) == (23 == b)) a else b end"], 
              ["if"             , "if (c(a, b, (c == 2)) == (23 == b)) a else b end"], 
-             ["set"            , "set v = ((c == 2) == (23 == c(a, b, c)))"]]
+             ["set"            , "set v = ((c == 2) == (23 == c(a, b, c)))"],
+             ["fn"             , "fn (a, b, c) a(a, b, c) end "]
+            ]
+
 
 parse_tests.each do|(type, str)|
   reader = StringScanner.new(str)
-  result = program_parser.rules(type).call.parse(reader)
+  result = program_parser.rules(type).parse(reader)
   if result
-    p [type, str, result.act ]
+    act = result.act
+    p [type, str,act.class, act ]
   else
     p ["### not match!!", type, [str, type]]
   end
 end
 
+
+global_env = Enviroment.new 
+
+PDef.new("a", PVal.new(1)).apply(global_env)
+PDef.new("b", PVar.new("a")).apply(global_env)
+p global_env
 
