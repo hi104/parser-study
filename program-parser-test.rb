@@ -11,6 +11,10 @@ class Enviroment
   def define(var, val)
     @data[var] = val
   end
+  
+  def extend(_data)
+    @data.merge!(_data)
+  end
 
   def set(var, val)
     if @data.has_key?(var)
@@ -78,12 +82,13 @@ class PSequence
   end
 
   def apply(env)
-    @val.each do 
-      @val.apply(env)
+    ret = nil
+    @val.each do |e|
+      ret = e.apply(env)
     end
+    ret
   end
 end
-
 
 class PVar
   def initialize(var)
@@ -112,6 +117,7 @@ class PIf
 end
 
 class PLambda
+  attr_reader :args, :body
 
   def initialize(args, body)
     @args = args
@@ -119,20 +125,43 @@ class PLambda
   end
 
   def apply(env)
-    
+    self
   end
+end
+
+class PPrimitive
+  def initialize(&block)
+    @block = block
+  end
+
+  def apply(env)
+    self
+  end
+
+  def call(args)
+    @block.call(*args)
+  end
+
 end
 
 class PApplication
 
-  def initialize(lam, args, body)
-    @lam = lam
+  def initialize(fn, args)
+    @fn = fn
     @args = args
-    @body = body
   end
 
   def apply(env)
-    
+    values = @args.map do |e| e.apply(env) end
+
+    func = @fn.apply(env)
+    if func.is_a?(PPrimitive)
+      func.call(values)
+    else
+      new_env = Enviroment.new(env)
+      new_env.extend(Hash[[func.args, values].transpose])
+      func.body.apply(new_env)
+    end
   end
 end
 
@@ -151,7 +180,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
 
   # 予約語check 
   #TODO ifa とかもマッチしなくなる
-  symbol_m = rule {
+  symbol_m = rule("symbol") {
     seq(nott?(term("if")),
         nott?(term("else")), 
         nott?(term("end")),
@@ -159,7 +188,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
         nott?(term("set")), 
         nott?(term("fn")), 
         symbol).>> {|e|
-      e[5]
+      e[6]
     }
   }
 
@@ -194,7 +223,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
   rule("set") { seq(
                     term("set"), 
                     space_m,
-                    symbol_m,
+                    rules("symbol").>> {|e| e },
                     space_wild_m, 
                     eq_m,
                     space_wild_m, 
@@ -219,6 +248,7 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
         choice(
                rules("set"),
                rules("def"),
+               rules("fn"),
                rules("if"), 
                rules("val")
                ),
@@ -300,32 +330,34 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
   rule("func_call") {
     seq(
         symbol_m,
-        rules("func_call_args")
-        )
+        rules("func_call_args").>>{|e| e.compact}
+        ).>> {|e| PApplication.new(PVar.new(e[0]) , e[1])}
   }
   
   rule("def") {
     seq( 
-        term("def"), space_m, 
-        symbol_m, rules("skip"),  
-        rules("func_args"), 
-        rules("skip"), 
-        rules("sequence"), 
+        term("def"),
+        space_m, 
+        symbol_m, 
+        space_wild_m, 
+        eq_m, 
         rules("skip"),  
-        term("end")
-        ).>> {|e| e.find_all{ |e| not e.nil?}}
+        choice(
+               rules("val"), 
+               rules("fn"))
+        ).>> {|e| PDef.new(e[2], e[6])}
   }
 
   rule("fn") {
     seq( 
         term("fn"),
         rules("skip"),  
-        rules("func_args"), 
+        rules("func_args").>> {|e| e.compact} , 
         rules("skip"), 
         rules("sequence"), 
         rules("skip"),  
         term("end")
-        ).>> {|e| e.find_all{ |e| not e.nil?}}
+        ).>> {|e| PLambda.new(e[2], e[4])}
   }
 
 #   rules("sequence").call
@@ -333,7 +365,8 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
 end
 
 
-parse_tests=[["func_args"      , "(sea, fdaf, fda)"], 
+parse_tests=[
+             ["func_args"      , "(sea, fdaf, fda)"], 
              ["func_call_args" , "(1, 2, 3, sea, fdaf, fda)"], 
              ["func_call_args" , "(1, 2, 3, b(1, 2, b(a, b, c)), fdaf, fda)"], 
              ["func_call"      , "b(1, 2, 3)"], 
@@ -342,10 +375,6 @@ parse_tests=[["func_args"      , "(sea, fdaf, fda)"],
              ["sequence"       , "set b = 23"],
              ["sequence"       , "set b = 23; set a = b;"], 
              ["sequence"       , "set b = 23; set a = b; b(1, 2, 3)"],
-             ["def"            , "def b(a, b, c) b end"], 
-             ["def"            , "def b(a, b, c) set b = 23 end"], 
-             ["def"            , "def c(a, b, c) set b = 23; set a = b;  b(1, 2, 3) end"], 
-             ["def"            , "def c(a, b, c) set b = 23; set a = b;  b(1, 2, 3) ; end"] , 
              ["if"             , "if (c(a, b, c)) set b = 23; set a = b;  b(1, 2, 3) ; else b end"], 
              ["if"             , "if (c(a, b, c)) set b = 23; set a = b;  b(1, 2, 3) ; else b \n end"], 
              ["comp_rule"      , "c(a, b, c) == 23"], 
@@ -355,7 +384,9 @@ parse_tests=[["func_args"      , "(sea, fdaf, fda)"],
              ["if"             , "if (c(a, b, c) == (23 == b)) a else b end"], 
              ["if"             , "if (c(a, b, (c == 2)) == (23 == b)) a else b end"], 
              ["set"            , "set v = ((c == 2) == (23 == c(a, b, c)))"],
-             ["fn"             , "fn (a, b, c) a(a, b, c) end "]
+             ["fn"             , "fn (a, b, c) a(a, b, c) end "], 
+             ["def"            , "def a = fn (a, b, c) a(a, b, c) end"], 
+             ["def"            , "def a = 12"]
             ]
 
 
@@ -370,10 +401,37 @@ parse_tests.each do|(type, str)|
   end
 end
 
-
 global_env = Enviroment.new 
+PSequence.new([
+               PDef.new("a", PVal.new(1)),
+               PDef.new("b", PVar.new("a"))]
+              ).apply(global_env)
 
-PDef.new("a", PVal.new(1)).apply(global_env)
-PDef.new("b", PVar.new("a")).apply(global_env)
 p global_env
+global_env.define("plus", PPrimitive.new { |a, b| a + b })
+global_env.define("p", PPrimitive.new { |*a| p a })
 
+PApplication.new(PVar.new("p"),[PVar.new("a")]).apply(global_env)
+
+p_lambda = PLambda.new(["a"],
+             PSequence.new([PApplication.new(PVar.new("p"),[PVar.new("a")])]))
+p p_lambda
+p PApplication.new(p_lambda, [PVar.new("a")]).apply(global_env)
+p PApplication.new(p_lambda, [PVal.new(100)]).apply(global_env)
+
+p global_env.get("plus").call([1, 2])
+global_env.get("p").call([1, 2, 3, 4])
+
+seq = program_parser.rules("sequence").parse(StringScanner.new("def a = 10; def c = 100; plus(a, c)")).act
+
+p seq.apply(global_env)
+
+p_lam_plus = program_parser.rules("sequence").parse(StringScanner.new("fn (a, b) plus(a, b) end")).act
+p p_lam_plus
+p_lam_plus2 = program_parser.rules("sequence").parse(StringScanner.new("def plus2 = fn (a) plus(a, 2) end")).act
+p p_lam_plus2.apply(global_env)
+p global_env.get("plus2")
+
+p_call_lam_plus2 = program_parser.rules("sequence").parse(StringScanner.new("plus2(10)")).act
+p p_call_lam_plus2
+p p_call_lam_plus2.apply(global_env)
