@@ -1,0 +1,58 @@
+def helloworld = fn()
+ p("helloworld")
+end
+
+helloworld()
+
+def fib = fn(n)
+ if (n > 1)
+   plus(fib(sub(n, 1)),
+        fib(sub(n, 2)))
+ else
+   if (n == 0)
+     0
+   else
+     1
+   end
+ end
+end
+
+def one   = 1;
+def two   = 2;
+def three = 3;
+
+if (one > two)
+  p("large", one)
+else
+  p("small", one)
+  if (two < three)
+     p("large", three)
+  else
+  
+  end
+end
+
+def x = 1;def y = 10
+set y = x
+set x = 10
+
+p("x, y", x, y)
+
+def showfib = fn()
+  
+  def loopfib = fn(st)
+    if (st >= 0)
+      p("fib", st, fib(st))
+      loopfib(sub(st, 1))
+    else
+      p("end")
+    end
+  end
+
+  loopfib(10)
+end
+
+showfib();
+
+
+
