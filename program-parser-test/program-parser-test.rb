@@ -5,15 +5,15 @@ require "./program.rb"
 program_parser = BackTrackParser::ParserFactory.new.instance_eval do 
 
   symbol       = rule { term("[@:a-zA-Z]+[0-9]*").>> {|e| e }} 
-  eq_m         = rule { term("=")}
-  camma        = rule { term("[,]").>> {|e| nil }}
-  string_m     = rule { term('"[^"]*"').>>{|e| PVal.new(e) }}
-  space_m      = rule { term("[ ]+").>> {|e| nil}}
-  space_wild_m = rule { term("[ ]*").>> {|e| nil}}
-  newline_m    = rule { term("[\n]+").>> {|e| nil}}
+  eq_m         = rule { term("=") }
+  camma        = rule { term("[,]").>>            {|e| nil }}
+  string_m     = rule { term('"[^"]*"').>>        {|e| PVal.new(e) }}
+  space_m      = rule { term("[ ]+").>>           {|e| nil}}
+  space_wild_m = rule { term("[ ]*").>>           {|e| nil}}
+  newline_m    = rule { term("[\n]+").>>          {|e| nil}}
   number_m     = rule { term("[0-9]+|-[0-9]+").>> {|e| PVal.new(e.to_i) }}
-  sk           = rule { term("[(]").>> {|e| nil} }
-  ek           = rule { term("[)]").>> {|e| nil} }
+  sk           = rule { term("[(]").>>            {|e| nil}}
+  ek           = rule { term("[)]").>>            {|e| nil}}
 
   # 予約語check 
   #TODO ifx, defx とかもマッチしなくなるのを直す。
@@ -59,9 +59,10 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
                    camma,
                    rules("skip"),
                    type_m,
-                   rules("skip")).>>{|e|e[3]} }).>> {|e| 
+                   rules("skip")).>>{|e| e[3] }
+             }).>> {|e| 
                   [e[0]] + e[2]
-                }, rules("skip").>>{ |e| [] }
+                }, rules("skip").>>{|e| [] }
                 ), ek).>> {|e| e[1]}
   }
 
@@ -299,9 +300,10 @@ class Eva_lu_tor
   end
 end
 
+
 evalutor = Eva_lu_tor.new(program_parser)
 
-def test
+def test(evalutor)
   p evalutor.eva_l("p(1)")
   p evalutor.eva_l("(1==1)")
   p evalutor.eva_l("(1!=1)")
@@ -319,5 +321,6 @@ def test
     evalutor.eva_l("p(lamlam20(10));")
 end
 
+# test(evalutor)
 # execute_parse_test(program_parser)
 p evalutor.evalfile("hello.myp")

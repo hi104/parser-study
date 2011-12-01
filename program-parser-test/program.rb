@@ -3,7 +3,7 @@ class ArgumentsException < Exception; end
 
 class Enviroment
 
-  def initialize(parent=nil)
+  def initialize(parent = nil)
     @parent = parent
     @data = {}
   end
