@@ -1,31 +1,6 @@
 require "./parser.rb"
 require "./parser_factory.rb"
 
-MEMO = {}
-
-module BackTrackParser  
-  class M 
-    alias_method :old_parse, :parse
-    def parse(reader)
-      info =  [reader.pos, self.class.name, self.name,  self.match.object_id]
-#       p ["IN  >", info]
-      temp =reader.pos
-      result = old_parse(reader)         
-      if self.name
-        MEMO[[temp, self.name]]||=[]
-        MEMO[[temp, self.name]].push result
-      end
-      if result
-#         MEMO[reader.pos,self.name]= result
-#         p ["< OUT", info]
-      else
-#         p ["< OUT", "not matched", info]
-      end
-      result
-    end
-  end
-end
-
 include BackTrackParser
 
 calc_parser = ParserFactory.new.instance_eval do 
