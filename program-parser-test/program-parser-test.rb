@@ -227,43 +227,44 @@ program_parser = BackTrackParser::ParserFactory.new.instance_eval do
 end
 
 
-parse_tests=[
-             ["func_args"      , "()"], 
-             ["func_args"      , "(sea, fdaf)"], 
-             ["func_args"      , "(sea, fdaf, fda)"], 
-             ["func_call_args" , "(1, 2, 3, sea, fdaf, fda)"], 
-             ["func_call_args" , "(1, 2, 3, b(1, 2, b(a, b, c)), fdaf, fda)"], 
-             ["func_call"      , "b(1, 2, 3)"], 
-             ["set"            , "set a = 23"], 
-             ["set"            , "set a = b(1, 2, 3)"], 
-             ["sequence"       , "set b = 23"],
-             ["sequence"       , "set b = 23; set a = b;"], 
-             ["sequence"       , "set b = 23; set a = b; b(1, 2, 3)"],
-             ["if"             , "if (c(a, b, c)) set b = 23; set a = b;  b(1, 2, 3) ; else b end"], 
-             ["if"             , "if (c(a, b, c)) set b = 23; set a = b;  b(1, 2, 3) ; else b \n end"], 
-             ["comp_rule"      , "c(a, b, c) == 23"], 
-             ["comp_rule"      , "10 > 2"], 
-             ["comp_rule"      , "10 <= call(a, b)"], 
-             ["comp_rule"      , "10 >= call(a, b)"], 
-             ["if"             , "if (c(a, b, c) == (23 == b)) a else b end"], 
-             ["if"             , "if (c(a, b, (c == 2)) == (23 == b)) a else b end"], 
-             ["set"            , "set v = ((c == 2) == (23 == c(a, b, c)))"],
-             ["fn"             , "fn (a, b, c) a(a, b, c) end "], 
-             ["def"            , "def a = fn (a, b, c) a(a, b, c) end"], 
-             ["def"            , "def a = 12"]
-            ]
+def execute_parse_test(test_parser)
+  parse_tests=[
+               ["func_args"      , "()"], 
+               ["func_args"      , "(sea, fdaf)"], 
+               ["func_args"      , "(sea, fdaf, fda)"], 
+               ["func_call_args" , "(1, 2, 3, sea, fdaf, fda)"], 
+               ["func_call_args" , "(1, 2, 3, b(1, 2, b(a, b, c)), fdaf, fda)"], 
+               ["func_call"      , "b(1, 2, 3)"], 
+               ["set"            , "set a = 23"], 
+               ["set"            , "set a = b(1, 2, 3)"], 
+               ["sequence"       , "set b = 23"],
+               ["sequence"       , "set b = 23; set a = b;"], 
+               ["sequence"       , "set b = 23; set a = b; b(1, 2, 3)"],
+               ["if"             , "if (c(a, b, c)) set b = 23; set a = b;  b(1, 2, 3) ; else b end"], 
+               ["if"             , "if (c(a, b, c)) set b = 23; set a = b;  b(1, 2, 3) ; else b \n end"], 
+               ["comp_rule"      , "c(a, b, c) == 23"], 
+               ["comp_rule"      , "10 > 2"], 
+               ["comp_rule"      , "10 <= call(a, b)"], 
+               ["comp_rule"      , "10 >= call(a, b)"], 
+               ["if"             , "if (c(a, b, c) == (23 == b)) a else b end"], 
+               ["if"             , "if (c(a, b, (c == 2)) == (23 == b)) a else b end"], 
+               ["set"            , "set v = ((c == 2) == (23 == c(a, b, c)))"],
+               ["fn"             , "fn (a, b, c) a(a, b, c) end "], 
+               ["def"            , "def a = fn (a, b, c) a(a, b, c) end"], 
+               ["def"            , "def a = 12"]
+              ]
 
-parse_tests.each do|(type, str)|
-  reader = StringScanner.new(str)
-  result = program_parser.rules(type).parse(reader)
-  if result
-    act = result.act
-    p [type, str,act.class, act ]
-  else
-    p ["### not match!!", type, [str, type]]
+  parse_tests.each do|(type, str)|
+    reader = StringScanner.new(str)
+    result = test_parser.rules(type).parse(reader)
+    if result
+      act = result.act
+      p [type, str,act.class, act ]
+    else
+      p ["### not match!!", type, [str, type]]
+    end
   end
 end
-
 
 class Eva_lu_tor
   def initialize(parser)
@@ -318,4 +319,5 @@ def test
     evalutor.eva_l("p(lamlam20(10));")
 end
 
- p evalutor.evalfile("hello.myp")
+# execute_parse_test(program_parser)
+p evalutor.evalfile("hello.myp")
