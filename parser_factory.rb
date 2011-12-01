@@ -8,13 +8,6 @@ module BackTrackParser
       @rules_set ={}
     end
 
-    def make_match(args)
-      top = args.shift
-      args.inject(yield(top)) do | acm, e|
-        acm - yield(e)
-      end
-    end
-
     def term(arg)
       Terminal.new( proc { MatchString.new(arg)} ).setName(arg) 
     end
@@ -50,6 +43,14 @@ module BackTrackParser
     def rule(name = nil,  &block)
       @rules_set[name] = proc { Rule.new(block).setName(name) }
       @rules_set[name]
+    end
+
+private
+    def make_match(args)
+      top = args.shift
+      args.inject(yield(top)) do | acm, e|
+        acm - yield(e)
+      end
     end
 
   end

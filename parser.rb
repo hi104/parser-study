@@ -141,7 +141,7 @@ module BackTrackParser
 
     def loopshort?(count)
       return false unless @min
-      count > @min
+      count < @min
     end
 
     def _parse(reader)

@@ -101,7 +101,7 @@ p calc_parser.rules_set.keys
  "((3 + 4) == (3 + 4)) == ((3 + 4) == (3 + 2))"
 ].each do |exp|
   reader = StringScanner.new(exp)
-  if result = calc_parser.rules("Loop").call.parse(reader)
+  if result = calc_parser.rules("Loop").parse(reader)
     p [exp, result.matched.act]
   end
   p reader
@@ -116,7 +116,7 @@ reader = StringScanner.new("
  + 
 (1  + 3 + 100)")
 
-if result = calc_parser.rules("Loop").call.parse(reader)
+if result = calc_parser.rules("Loop").parse(reader)
   p ["result", result.matched.act]
 end
 
