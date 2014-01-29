@@ -1,7 +1,7 @@
 #TODO add EOF match
 
 require "strscan"
-module BackTrackParser  
+module BackTrackParser
   class C #Cons
     include Enumerable
     attr_accessor :car, :cdr
@@ -30,6 +30,10 @@ module BackTrackParser
       end
       n.cdr = target
       self
+    end
+
+    def length
+      map.to_a.length
     end
 
   end
@@ -73,8 +77,8 @@ module BackTrackParser
 
     def matcher
       m = match
-      while m.is_a?(Proc) 
-        m =  m.call 
+      while m.is_a?(Proc)
+        m =  m.call
       end
       m
     end
@@ -92,11 +96,11 @@ module BackTrackParser
     end
   end
 
-  class SeqCell < M 
+  class SeqCell < M
     def _parse(reader)
       i = reader.pos
       if @matched = matcher.parse(reader)
-        return retcons  unless next_match 
+        return retcons  unless next_match
         ret = next_match.parse(reader)
         return retcons + ret if ret
       end
@@ -105,7 +109,7 @@ module BackTrackParser
     end
   end
 
-  class ChoiceCell < M 
+  class ChoiceCell < M
     def _parse(reader)
       @matched = matcher.parse(reader)
       if @matched
@@ -117,7 +121,7 @@ module BackTrackParser
   end
 
 
-  class LoopCell < M 
+  class LoopCell < M
 
     attr_accessor :min, :max
     def initialize(_match, _min = nil, _max=nil)
@@ -136,7 +140,7 @@ module BackTrackParser
 
     def loopover?(count)
       return false unless @max
-      count > @max 
+      count > @max
     end
 
     def loopshort?(count)
@@ -150,14 +154,14 @@ module BackTrackParser
       while ret_matched = parser.matcher.parse(reader)
         parser.matched = ret_matched
         ret.add_tail parser.retcons unless self == parser
-        return nil if  loopover?(ret.map.length)
+        return nil if  loopover?(ret.length)
         parser = LoopCell.new(@match)
       end
-      loopshort?(ret.map.length) ? nil : ret
+      loopshort?(ret.length) ? nil : ret
     end
   end
 
-  class NotM < M 
+  class NotM < M
     def _parse(reader)
       i = reader.pos
       if @matched = matcher.parse(reader)
@@ -170,7 +174,7 @@ module BackTrackParser
     end
   end
 
-  class AndM < M 
+  class AndM < M
     def _parse(reader)
       i = reader.pos
       if @matched = matcher.parse(reader)
@@ -249,20 +253,20 @@ module BackTrackParser
       end
     end
   end
-  
-  class Choice < Tag 
+
+  class Choice < Tag
     include SingleResultParser
   end
 
-  class Rule < Tag 
+  class Rule < Tag
     include SingleResultParser
   end
 
-  class Wild < Tag 
+  class Wild < Tag
     include MultResultParser
   end
 
-  class Seq < Tag 
+  class Seq < Tag
     include MultResultParser
   end
 
